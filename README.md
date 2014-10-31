@@ -4,7 +4,8 @@ Functional Programing in Scala
 by Paul Chiusano and Rúnar Bjarnason
 
 http://www.manning.com/bjarnason/
-http://www.manning.com/ebookoffer/
+(eBook: http://www.manning.com/ebookoffer/)
+
 http://www.manning.com/about/meap.html
 
 https://github.com/fpinscala/fpinscala
