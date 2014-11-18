@@ -9,6 +9,7 @@ def sum(ints: IndexedSeq[Int]): Int =
 		ints.headOption getOrElse 0
 	else {
 		val (l,r) = ints.splitAt(ints.length/2)
-		sum(l) + sum(r)
+		val sumL: Par[Int] = Par.unit(sum(l))
+		val sumR: Par[Int] = Par.unit(sum(r))
+		Par.get(sumL) + Par.get(sumR)
 	}
-
