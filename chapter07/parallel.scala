@@ -25,6 +25,7 @@ object Par {
 			def call = a(es).get
 		})
 	def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
+	def asyncF[A,B](f: A => B): A => Par[B] = a => lazyUnit(f(a))
 	def map2[A,B,C](a: Par[A], b: Par[B])(f: (A,B) => C): Par[C] = 
 		(es: ExecutorService) => {
 			val (af, bf) = (a(es), b(es))
