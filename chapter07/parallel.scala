@@ -27,9 +27,8 @@ object Par {
 	def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
 	def map2[A,B,C](a: Par[A], b: Par[B])(f: (A,B) => C): Par[C] = 
 		(es: ExecutorService) => {
-			val af = a(es)
-			val bf = b(es)
-			UnitFuture(f(af.get, bf.get))
+			val (af, bf) = (a(es), b(es))
+			Map2Future(af, bf, f)
 		}
 	
 	private case class UnitFuture[A](get: A) extends Future[A] {
@@ -37,6 +36,30 @@ object Par {
 		def get(timeout: Long, units: TimeUnit) = get
 		def isCancelled = false
 		def cancel(evenIfRunning: Boolean): Boolean = false
+	}
+	
+	case class Map2Future[A,B,C](a: Future[A], b: Future[B], f: (A,B) => C) extends Future[C] {
+		var cache: Option[C] = None
+		def isDone = cache.isDefined
+		def isCancelled = a.isCancelled || b.isCancelled
+		def cancel(evenIfRunning: Boolean) = 
+			a.cancel(evenIfRunning) || b.cancel(evenIfRunning)
+		def get = compute(Long.MaxValue)
+		def get(timeout: Long, units: TimeUnit): C = 
+			compute(TimeUnit.MILLISECONDS.convert(timeout, units))
+		
+		private def compute(timeoutMs: Long): C = cache match {
+			case Some(c) => c
+			case None => {
+				val start = System.currentTimeMillis
+				val ar = a.get(timeoutMs, TimeUnit.MILLISECONDS)
+				val stop = System.currentTimeMillis
+				val at = stop-start
+				val br = b.get(timeoutMs - at, TimeUnit.MILLISECONDS)
+				cache = Some(f(ar,br))
+				cache.get
+			}
+		}
 	}
 }
 
