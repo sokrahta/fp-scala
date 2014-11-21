@@ -37,7 +37,7 @@ object Par {
 	def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
 		map2(pa, unit(()))((a,_) => f(a))
 	
-	def parMap[A,B](ps: List[A])(f: A => B): Par[List[B]] = {
+	def parMap[A,B](ps: List[A])(f: A => B): Par[List[B]] = fork {
 		val fbs: List[Par[B]] = ps.map(asyncF(f))
 		sequence(fbs)
 	}
