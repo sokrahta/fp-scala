@@ -37,6 +37,13 @@ object Par {
 	def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
 		map2(pa, unit(()))((a,_) => f(a))
 	
+	def parMap[A,B](ps: List[A])(f: A => B): Par[List[B]] = {
+		val fbs: List[Par[B]] = ps.map(asyncF(f))
+		???
+	}
+	def sequence[A](ps: List[Par[A]]): Par[List[A]] = 
+		ps.foldRight[Par[List[A]]](unit(List()))((h,t) => map2(h,t)(_::_))
+	
 	private case class UnitFuture[A](get: A) extends Future[A] {
 		def isDone = true
 		def get(timeout: Long, units: TimeUnit) = get
