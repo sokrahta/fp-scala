@@ -32,6 +32,9 @@ object Par {
 			Map2Future(af, bf, f)
 		}
 	
+	def sortPar(parList: Par[List[Int]]): Par[List[Int]] = 
+		map2(parList, unit(()))((a, _) = a.sorted)
+	
 	private case class UnitFuture[A](get: A) extends Future[A] {
 		def isDone = true
 		def get(timeout: Long, units: TimeUnit) = get
