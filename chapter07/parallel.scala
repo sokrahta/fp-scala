@@ -1,4 +1,4 @@
-import java.util.concurrent._
+import java.util.concurrent.{ExecutorService, Callable, Future}
 
 // end goal: map function to list in parallel
 // val outputList = parMap(inputList)(f)
@@ -49,6 +49,11 @@ object Par {
 		map(sequence(pas))(a => a.flatten)
 	}
 	
+	def parWordCount(ss: List[String]): Par[Int] = {
+		val pl: List[Par[Int]] = ss map (asyncF((s) => s.split(Array(' ','\t')).length))
+		map(sequence(pl))(_.foldLeft(0)((a,b) => a+b))
+	}
+	
 	private case class UnitFuture[A](get: A) extends Future[A] {
 		def isDone = true
 		def get(timeout: Long, units: TimeUnit) = get
@@ -81,16 +86,17 @@ object Par {
 	}
 }
 
-abstract class ExecutorService {
-	def submit[A](a: Callable[A]): Future[A]
-}
-trait Callable[A] { def call: A }
-trait Future[A] {
-	def get: A
-	def get(timeout: Long, unit: TimeUnit): A
-	def cancel(evenIfRunning: Boolean): Boolean
-	def isDone: Boolean
-	def isCancelled: Boolean
-}
+// imported from java.util.concurrent
+// abstract class ExecutorService {
+	// def submit[A](a: Callable[A]): Future[A]
+// }
+// trait Callable[A] { def call: A }
+// trait Future[A] {
+	// def get: A
+	// def get(timeout: Long, unit: TimeUnit): A
+	// def cancel(evenIfRunning: Boolean): Boolean
+	// def isDone: Boolean
+	// def isCancelled: Boolean
+// }
 
 Par.map2(Par.unit(1), Par.unit(1))(_+_)
