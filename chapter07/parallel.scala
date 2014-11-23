@@ -44,6 +44,11 @@ object Par {
 	def sequence[A](ps: List[Par[A]]): Par[List[A]] = 
 		ps.foldRight[Par[List[A]]](unit(List()))((h,t) => map2(h,t)(_::_))
 	
+	def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]] = {
+		val pas: List[Par[List[A]]] = as map (asyncF((a: A) => if (f(a)) List(a) else List()))
+		map(sequence(pas))(a => a.flatten)
+	}
+	
 	private case class UnitFuture[A](get: A) extends Future[A] {
 		def isDone = true
 		def get(timeout: Long, units: TimeUnit) = get
