@@ -32,6 +32,9 @@ object Par {
 			Map2Future(af, bf, f)
 		}
 	
+	def equal[A](e: ExecutorService)(p1: Par[A], p2: Par[A]): Boolean = 
+		p1(e).get == p2(e).get
+	
 	def sortPar(pa: Par[List[Int]]): Par[List[Int]] = 
 		map(pa)(_.sorted)
 	def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
