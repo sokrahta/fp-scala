@@ -1,4 +1,5 @@
-import java.util.concurrent.{ExecutorService, Callable, Future}
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{Callable, ExecutorService}
 
 // end goal: map function to list in parallel
 // val outputList = parMap(inputList)(f)
@@ -18,13 +19,26 @@ trait Par[+A]
 object Par {
 	type Par[A] = ExecutorService => Future[A]
 	
-	def unit[A](a: => A): Par[A] = (es: ExecutorService) => UnitFuture(a)
-	def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
+	def unit[A](a: => A): Par[A] = 
+		(es: ExecutorService) => new Future[A] {
+			override def apply(cb: A => Unit): Unit =
+				cb(a)
+		}
+	def run[A](es: ExecutorService)(p: Par[A]): A = {
+		val ref = new AtomicReference[A]
+		val latch = new CountDownLatch(1)
+		p(es) { a => ref.set(a); latch.countDown }
+		latch.await
+		ref.get
+	}
 	// fork deadlocks on any fixed thread pool of size numforks-1 or fewer
 	def fork[A](a: => Par[A]): Par[A] = 
-		es => es.submit(new Callable[A] {
-			def call = a(es).get
-		})
+		es => new Future[A] {
+			override def apply(cb: A => Unit): Unit = 
+				eval(es)(a(es)(cb))
+		}
+	def eval(es: ExecutorService)(r: => Unit): Unit = 
+		es.submit(new Callable[Unit] { def call = r })
 	def delay[A](fa: => Par[A]): Par[A] = 
 		es => fa(es)
 	def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
@@ -60,21 +74,22 @@ object Par {
 		map(sequence(pl))(_.foldLeft(0)((a,b) => a+b))
 	}
 	
-	private case class UnitFuture[A](get: A) extends Future[A] {
-		def isDone = true
-		def get(timeout: Long, units: TimeUnit) = get
-		def isCancelled = false
-		def cancel(evenIfRunning: Boolean): Boolean = false
+	private case class UnitFuture[A](newGet: A) extends Future[A] {
+		override def get = newGet
+		override def isDone = true
+		override def get(timeout: Long, units: TimeUnit) = get
+		override def isCancelled = false
+		override def cancel(evenIfRunning: Boolean): Boolean = false
 	}
 	
 	case class Map2Future[A,B,C](a: Future[A], b: Future[B], f: (A,B) => C) extends Future[C] {
 		var cache: Option[C] = None
-		def isDone = cache.isDefined
-		def isCancelled = a.isCancelled || b.isCancelled
-		def cancel(evenIfRunning: Boolean) = 
+		override def isDone = cache.isDefined
+		override def isCancelled = a.isCancelled || b.isCancelled
+		override def cancel(evenIfRunning: Boolean) = 
 			a.cancel(evenIfRunning) || b.cancel(evenIfRunning)
-		def get = compute(Long.MaxValue)
-		def get(timeout: Long, units: TimeUnit): C = 
+		override def get = compute(Long.MaxValue)
+		override def get(timeout: Long, units: TimeUnit): C = 
 			compute(TimeUnit.MILLISECONDS.convert(timeout, units))
 		
 		private def compute(timeoutMs: Long): C = cache match {
@@ -97,12 +112,15 @@ object Par {
 	// def submit[A](a: Callable[A]): Future[A]
 // }
 // trait Callable[A] { def call: A }
-// trait Future[A] {
-	// def get: A
-	// def get(timeout: Long, unit: TimeUnit): A
-	// def cancel(evenIfRunning: Boolean): Boolean
-	// def isDone: Boolean
-	// def isCancelled: Boolean
-// }
+sealed trait Future[A] {
+	def get: A = ???
+	def get(timeout: Long, unit: TimeUnit): A = ???
+	def cancel(evenIfRunning: Boolean): Boolean = ???
+	def isDone: Boolean = ???
+	def isCancelled: Boolean = ???
+	
+	// wants to be private[parallelism]
+	def apply(k: A => Unit): Unit = ???
+}
 
 Par.map2(Par.unit(1), Par.unit(1))(_+_)
