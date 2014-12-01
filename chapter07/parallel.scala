@@ -20,6 +20,7 @@ object Par {
 	
 	def unit[A](a: => A): Par[A] = (es: ExecutorService) => UnitFuture(a)
 	def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
+	// fork deadlocks on any fixed thread pool of size numforks-1 or fewer
 	def fork[A](a: => Par[A]): Par[A] = 
 		es => es.submit(new Callable[A] {
 			def call = a(es).get
